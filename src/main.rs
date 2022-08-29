@@ -25,7 +25,6 @@ use log::*;
 use mipidsi::DisplayOptions;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use std::thread;
-
 use std::time::Duration;
 use tinybmp::DynamicBmp;
 
