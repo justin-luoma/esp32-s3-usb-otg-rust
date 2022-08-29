@@ -39,6 +39,7 @@ display-interface-spi = "0.4.1"
 embedded-graphics = "0.7"
 tinybmp = "0.3.3"
 futures = "0.3.23"
+esp32s3-hal = "0.1.0"
 
 [build-dependencies]
 embuild = "0.30.3"

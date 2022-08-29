@@ -17,11 +17,15 @@ use embedded_hal::prelude::*;
 use esp_idf_hal::rmt::{
     self, config::TransmitConfig, FixedLengthSignal, PinState, Pulse, Transmit,
 };
-use esp_idf_hal::{delay, delay::Ets, gpio, gpio::Pull, prelude::*, spi, spi::SPI3};
+use esp_idf_hal::{delay, delay::Ets, gpio, prelude::*, spi, spi::SPI3};
+
+use esp32s3_hal::IO;
+
 use log::*;
 use mipidsi::DisplayOptions;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use std::thread;
+
 use std::time::Duration;
 use tinybmp::DynamicBmp;
 
@@ -35,56 +39,57 @@ fn main() -> Result<()> {
 
     info!("Initializing");
 
-    let peripherals = Peripherals::take().unwrap();
-    let pins = peripherals.pins;
+    let peripherals = esp32s3_hal::pac::Peripherals::take().unwrap();
+    let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
+    let pins = io.pins;
 
-    let touch = pins.gpio3.into_input()?.into_floating()?;
+    // let touch = pins.gpio3.into_input()?.into_floating()?;
 
-    let touch_thread = thread::spawn(move || loop {
-        info!("Touch: {}", touch.is_high().unwrap());
-        thread::sleep(Duration::from_millis(100));
-    });
+    // let touch_thread = thread::spawn(move || loop {
+    //     info!("Touch: {}", touch.is_high().unwrap());
+    //     thread::sleep(Duration::from_millis(100));
+    // });
 
     let button_up_mutex: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
 
-    let led1 = pins.gpio15.into_output()?;
+    let led1 = pins.gpio15.into_push_pull_output();
 
     let button_up_mutex_thread = Arc::clone(&button_up_mutex);
 
     let thread1 =
         thread::spawn(move || spawn_toggleable_pin_thread(led1, &LED1, button_up_mutex_thread));
 
-    let button_down_mutex: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
+    // let button_down_mutex: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
 
-    let led2: gpio::Gpio16<gpio::Output> = pins.gpio16.into_output()?;
+    // let led2: gpio::Gpio16<gpio::Output> = pins.gpio16.into_output()?;
 
-    let button_down_mutex_thread = Arc::clone(&button_down_mutex);
-    let thread2 =
-        thread::spawn(move || spawn_toggleable_pin_thread(led2, &LED2, button_down_mutex_thread));
+    // let button_down_mutex_thread = Arc::clone(&button_down_mutex);
+    // let thread2 =
+    //     thread::spawn(move || spawn_toggleable_pin_thread(led2, &LED2, button_down_mutex_thread));
 
-    let mut button_up = pins.gpio10.into_input()?;
-    button_up.set_pull_up()?;
+    // let mut button_up = pins.gpio10.into_input()?;
+    // button_up.set_pull_up()?;
 
-    let button_up_mutex_thread = Arc::clone(&button_up_mutex);
-    let button_up_thread =
-        thread::spawn(move || spawn_button_thread(button_up, button_up_mutex_thread, &LED1));
+    // let button_up_mutex_thread = Arc::clone(&button_up_mutex);
+    // let button_up_thread =
+    //     thread::spawn(move || spawn_button_thread(button_up, button_up_mutex_thread, &LED1));
 
-    let mut button_down = pins.gpio11.into_input()?;
-    button_down.set_pull_up()?;
+    // let mut button_down = pins.gpio11.into_input()?;
+    // button_down.set_pull_up()?;
 
-    let button_down_mutex_thread = Arc::clone(&button_down_mutex);
-    let button_down_thread =
-        thread::spawn(move || spawn_button_thread(button_down, button_down_mutex_thread, &LED2));
+    // let button_down_mutex_thread = Arc::clone(&button_down_mutex);
+    // let button_down_thread =
+    //     thread::spawn(move || spawn_button_thread(button_down, button_down_mutex_thread, &LED2));
 
-    let backlight: gpio::Gpio9<gpio::Unknown> = pins.gpio9;
-    let sclk: gpio::Gpio6<gpio::Unknown> = pins.gpio6;
-    let sdo: gpio::Gpio7<gpio::Unknown> = pins.gpio7;
-    let cs: gpio::Gpio5<gpio::Unknown> = pins.gpio5;
-    let dc: gpio::Gpio4<gpio::Unknown> = pins.gpio4;
-    let rst: gpio::Gpio8<gpio::Unknown> = pins.gpio8;
-    let spi3 = peripherals.spi3;
+    // let backlight: gpio::Gpio9<gpio::Unknown> = pins.gpio9;
+    // let sclk: gpio::Gpio6<gpio::Unknown> = pins.gpio6;
+    // let sdo: gpio::Gpio7<gpio::Unknown> = pins.gpio7;
+    // let cs: gpio::Gpio5<gpio::Unknown> = pins.gpio5;
+    // let dc: gpio::Gpio4<gpio::Unknown> = pins.gpio4;
+    // let rst: gpio::Gpio8<gpio::Unknown> = pins.gpio8;
+    // let spi3 = peripherals.spi3;
 
-    setup_display(backlight, sclk, sdo, cs, dc, rst, spi3)?;
+    // setup_display(backlight, sclk, sdo, cs, dc, rst, spi3)?;
 
     info!("Hello, world!");
 
@@ -92,21 +97,21 @@ fn main() -> Result<()> {
         .join()
         .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
-    thread2
-        .join()
-        .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
+    // thread2
+    //     .join()
+    //     .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
-    button_up_thread
-        .join()
-        .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
+    // button_up_thread
+    //     .join()
+    //     .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
-    button_down_thread
-        .join()
-        .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
+    // button_down_thread
+    //     .join()
+    //     .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
-    touch_thread
-        .join()
-        .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
+    // touch_thread
+    //     .join()
+    //     .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
     Ok(())
 }
