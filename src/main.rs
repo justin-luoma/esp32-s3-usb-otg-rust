@@ -14,15 +14,13 @@ use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_hal::prelude::*;
-use esp_idf_hal::delay::Ets;
-use esp_idf_hal::rmt::config::TransmitConfig;
-use esp_idf_hal::rmt::{self, FixedLengthSignal, PinState, Pulse, Transmit};
-use esp_idf_hal::spi::SPI3;
-use esp_idf_hal::{delay, gpio, gpio::Pull, prelude::*, spi};
+use esp_idf_hal::rmt::{
+    self, config::TransmitConfig, FixedLengthSignal, PinState, Pulse, Transmit,
+};
+use esp_idf_hal::{delay, delay::Ets, gpio, gpio::Pull, prelude::*, spi, spi::SPI3};
 use log::*;
 use mipidsi::DisplayOptions;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tinybmp::DynamicBmp;
