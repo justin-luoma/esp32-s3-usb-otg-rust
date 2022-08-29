@@ -7,7 +7,7 @@
     "args": {
       "CONTAINER_USER": "esp",
       "CONTAINER_GROUP": "esp",
-      "ESP_IDF_VERSION":"release/v4.4",
+      "ESP_IDF_VERSION": "release/v4.4",
       "ESP_BOARD": "esp32s3"
     }
   },
