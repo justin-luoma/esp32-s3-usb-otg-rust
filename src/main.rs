@@ -38,6 +38,13 @@ fn main() -> Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let pins = peripherals.pins;
 
+    let touch = pins.gpio3.into_input()?.into_floating()?;
+
+    let touch_thread = thread::spawn(move || loop {
+        info!("Touch: {}", touch.is_high().unwrap());
+        thread::sleep(Duration::from_millis(100));
+    });
+
     let button_up_mutex: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
 
     let led1 = pins.gpio15.into_output()?;
@@ -94,6 +101,10 @@ fn main() -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
     button_down_thread
+        .join()
+        .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
+
+    touch_thread
         .join()
         .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
