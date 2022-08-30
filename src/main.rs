@@ -1,6 +1,7 @@
 #![feature(backtrace)]
 
 use anyhow::Result;
+use critical_section::Mutex as CMutex;
 use display_interface_spi::SPIInterfaceNoCS;
 use embedded_graphics::image::Image;
 use embedded_graphics::mono_font::ascii::FONT_10X20;
@@ -13,14 +14,22 @@ use embedded_graphics::primitives::{
 use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
-use embedded_hal::prelude::*;
+use embedded_hal::prelude::_embedded_hal_blocking_delay_DelayMs;
+use esp32s3_hal::gpio_types::{Event, Pin};
+use esp32s3_hal::{macros::ram, pac};
 use esp_idf_hal::rmt::{
     self, config::TransmitConfig, FixedLengthSignal, PinState, Pulse, Transmit,
 };
-use esp_idf_hal::{delay, delay::Ets, gpio, prelude::*, spi, spi::SPI3};
+use esp_idf_hal::{delay, delay::Ets, gpio, prelude::FromValueType, spi, spi::SPI3};
 
-use esp32s3_hal::IO;
+use esp32s3_hal::{
+    gpio::Gpio10,
+    gpio_types::{Input, PullDown},
+    prelude::interrupt,
+    IO,
+};
 
+use core::cell::RefCell;
 use log::*;
 use mipidsi::DisplayOptions;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
@@ -31,7 +40,8 @@ use tinybmp::DynamicBmp;
 static LED1: AtomicBool = AtomicBool::new(true);
 static LED2: AtomicBool = AtomicBool::new(true);
 
-fn main() -> Result<()> {
+static BUTTON: CMutex<RefCell<Option<Gpio10<Input<PullDown>>>>> = CMutex::new(RefCell::new(None));
+fn main() -> ! {
     esp_idf_sys::link_patches();
 
     esp_idf_svc::log::EspLogger::initialize_default();
@@ -58,6 +68,16 @@ fn main() -> Result<()> {
     let thread1 =
         thread::spawn(move || spawn_toggleable_pin_thread(led1, &LED1, button_up_mutex_thread));
 
+    let mut button = pins.gpio10.into_pull_down_input();
+    button.listen(Event::AnyEdge);
+
+    esp32s3_hal::interrupt::enable(
+        pac::Interrupt::GPIO,
+        esp32s3_hal::interrupt::Priority::Priority2,
+    )
+    .unwrap();
+
+    critical_section::with(|cs| BUTTON.borrow_ref_mut(cs).replace(button));
     // let button_down_mutex: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
 
     // let led2: gpio::Gpio16<gpio::Output> = pins.gpio16.into_output()?;
@@ -94,7 +114,8 @@ fn main() -> Result<()> {
 
     thread1
         .join()
-        .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))
+        .unwrap();
 
     // thread2
     //     .join()
@@ -112,7 +133,21 @@ fn main() -> Result<()> {
     //     .join()
     //     .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
-    Ok(())
+    // Ok(())
+    loop {}
+}
+
+#[ram]
+#[interrupt]
+fn GPIO() {
+    info!("button interrupt");
+    critical_section::with(|cs| {
+        BUTTON
+            .borrow_ref_mut(cs)
+            .as_mut()
+            .unwrap()
+            .clear_interrupt()
+    });
 }
 
 fn spawn_button_thread<B>(button: B, mutex: Arc<Mutex<()>>, led_state: &AtomicBool)
