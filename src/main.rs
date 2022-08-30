@@ -15,19 +15,14 @@ use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_hal::prelude::_embedded_hal_blocking_delay_DelayMs;
-use esp32s3_hal::gpio_types::{Event, Pin};
+use esp32s3_hal::gpio_types::{Event, Input, Pin, PullUp};
 use esp32s3_hal::{macros::ram, pac};
 use esp_idf_hal::rmt::{
     self, config::TransmitConfig, FixedLengthSignal, PinState, Pulse, Transmit,
 };
 use esp_idf_hal::{delay, delay::Ets, gpio, prelude::FromValueType, spi, spi::SPI3};
 
-use esp32s3_hal::{
-    gpio::Gpio10,
-    gpio_types::{Input, PullDown},
-    prelude::interrupt,
-    IO,
-};
+use esp32s3_hal::{gpio::Gpio10, prelude::interrupt, IO};
 
 use core::cell::RefCell;
 use log::*;
@@ -40,7 +35,7 @@ use tinybmp::DynamicBmp;
 static LED1: AtomicBool = AtomicBool::new(true);
 static LED2: AtomicBool = AtomicBool::new(true);
 
-static BUTTON: CMutex<RefCell<Option<Gpio10<Input<PullDown>>>>> = CMutex::new(RefCell::new(None));
+static BUTTON: CMutex<RefCell<Option<Gpio10<Input<PullUp>>>>> = CMutex::new(RefCell::new(None));
 fn main() -> ! {
     esp_idf_sys::link_patches();
 
@@ -68,8 +63,8 @@ fn main() -> ! {
     let thread1 =
         thread::spawn(move || spawn_toggleable_pin_thread(led1, &LED1, button_up_mutex_thread));
 
-    let mut button = pins.gpio10.into_pull_down_input();
-    button.listen(Event::AnyEdge);
+    let mut button = pins.gpio10.into_pull_up_input();
+    button.listen(Event::RisingEdge);
 
     esp32s3_hal::interrupt::enable(
         pac::Interrupt::GPIO,
@@ -134,7 +129,9 @@ fn main() -> ! {
     //     .map_err(|e| anyhow::anyhow!("Thread join error: {:?}", e))?;
 
     // Ok(())
-    loop {}
+    loop {
+        thread::sleep(Duration::from_millis(500));
+    }
 }
 
 #[ram]
